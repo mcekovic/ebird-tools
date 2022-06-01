@@ -20,9 +20,17 @@ public class SerbianBirdsList {
          var name = nameElement.select("span.Heading-main").text();
 //         var sciName = nameElement.select("span.Heading-sub.Heading-sub--inline.Heading-sub--sci").text();
          var url = nameElement.select("a").attr("href");
-         var observations = number <= 1 ? Integer.parseInt(Jsoup.connect("https://ebird.org" + url).get()
-            .select("table.Table--speciesStats").text()) : 0;
+         int observations = number <= 1 ? getObservations(url) : 0;
          System.out.printf("%1$s: %2$s - %3$d%n", number, name, observations);
       }
+   }
+
+   private static int getObservations(String url) throws IOException {
+      var e = Jsoup.connect("https://ebird.org" + url).get()
+         .select("table.Table--speciesStats");
+      System.out.println(e);
+      var observations = e.select("tbody:nth-child(2) > tr:nth-child(2) > td:nth-child(2) > span:nth-child(1)").text();
+      System.out.println(observations);
+      return Integer.parseInt(observations);
    }
 }
