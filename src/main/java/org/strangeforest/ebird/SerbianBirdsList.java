@@ -17,6 +17,7 @@ import static java.util.Comparator.*;
 
 public class SerbianBirdsList {
 
+   private static final boolean PERSONALIZED = false;
    private static final String EBIRD_API_USERNAME = "MjUxODE0Nw==";
    private static final String EBIRD_API_TOKEN = "jfekjedvescr";
 
@@ -114,7 +115,7 @@ public class SerbianBirdsList {
    private static ObservationCounts getObservationCount(String speciesCode) {
       return fetchData(
          speciesCode, new Request.Builder()
-            .url("https://api.ebird.org/v2/product/obsstats/%1$s/RS?username=%2$s".formatted(speciesCode, EBIRD_API_USERNAME))
+            .url("https://api.ebird.org/v2/product/obsstats/%1$s/RS?username=%2$s".formatted(speciesCode, PERSONALIZED ? EBIRD_API_USERNAME : ""))
             .addHeader("X-eBirdApiToken", EBIRD_API_TOKEN)
             .build(),
          body -> OBJECT_MAPPER.readValue(body.byteStream(), ObservationCounts.class),
