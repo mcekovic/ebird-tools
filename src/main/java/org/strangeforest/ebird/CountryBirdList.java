@@ -2,7 +2,6 @@ package org.strangeforest.ebird;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.atomic.*;
 import java.util.stream.*;
 
 import com.fasterxml.jackson.core.type.*;
@@ -15,8 +14,10 @@ import org.slf4j.*;
 
 import static java.util.Comparator.*;
 
-public class SerbianBirdsList {
 
+public class CountryBirdList {
+
+   private static final String COUNTRY_CODE = "RS";
    private static final boolean PERSONALIZED = false;
    private static final String EBIRD_API_USERNAME = "MjUxODE0Nw==";
    private static final String EBIRD_API_TOKEN = "jfekjedvescr";
@@ -24,15 +25,14 @@ public class SerbianBirdsList {
    private static final OkHttpClient CLIENT = new OkHttpClient();
    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-   private static final Logger log = LoggerFactory.getLogger(SerbianBirdsList.class);
+   private static final Logger log = LoggerFactory.getLogger(CountryBirdList.class);
 
    public static void main(String[] args) throws IOException {
-      System.out.println("Fetching Serbian bird species");
-      var species = recognizedSpecies("RS");
+      System.out.println("Fetching bird species for country " + COUNTRY_CODE);
+      var species = recognizedSpecies(COUNTRY_CODE);
       System.out.println("Enriching species data");
-      species = enrichSpecies(species);
-      species = sortSpecies(species);
-      System.out.println("\nSerbian Birds:");
+      species = sortSpecies(enrichSpecies(COUNTRY_CODE, species));
+      System.out.println("\nBirds:");
       System.out.println("No,Code,Name,EnglishName,SciName,Status,ObsCount,FamilyName,FamilySciName,Order");
       species.forEach(s ->
          System.out.printf("%1$s,%2$s,%3$s,%4$s,%5$s,%6$s,%7$d,%8$s,%9$s,%10$s%n",
@@ -62,13 +62,13 @@ public class SerbianBirdsList {
          .filter(Species::isRecognized);
    }
 
-   private static Stream<Species> enrichSpecies(Stream<Species> species) {
+   private static Stream<Species> enrichSpecies(String countryCode, Stream<Species> species) {
       var ticker = new Ticker(1, 100);
       return species.parallel()
          .map(s -> {
             var taxonomy = getTaxonomy(s.code);
             var consStatus = getConservationStatus(s.code);
-            var obsCounts = getObservationCount(s.code);
+            var obsCounts = getObservationCount(countryCode, s.code);
             ticker.tick();
             return new Species(s.number, s.code, s.name, taxonomy, consStatus, obsCounts);
          });
@@ -112,10 +112,10 @@ public class SerbianBirdsList {
       );
    }
 
-   private static ObservationCounts getObservationCount(String speciesCode) {
+   private static ObservationCounts getObservationCount(String countryCode, String speciesCode) {
       return fetchData(
          speciesCode, new Request.Builder()
-            .url("https://api.ebird.org/v2/product/obsstats/%1$s/RS?username=%2$s".formatted(speciesCode, PERSONALIZED ? EBIRD_API_USERNAME : ""))
+            .url("https://api.ebird.org/v2/product/obsstats/%1$s/%2$s?username=%3$s".formatted(speciesCode, countryCode, PERSONALIZED ? EBIRD_API_USERNAME : ""))
             .addHeader("X-eBirdApiToken", EBIRD_API_TOKEN)
             .build(),
          body -> OBJECT_MAPPER.readValue(body.byteStream(), ObservationCounts.class),
@@ -173,26 +173,5 @@ public class SerbianBirdsList {
 
    private record ObservationCounts(long obsCount, long userObsCount, long userYearObsCount) {
       private static final ObservationCounts EMPTY = new ObservationCounts(-1L, -1L, -1L);
-   }
-
-   private static final class Ticker {
-      private final int printEvery;
-      private final int newLineAfter;
-      private final AtomicInteger current;
-
-      private Ticker(int printEvery, int newLineAfter) {
-         this.printEvery = printEvery;
-         this.newLineAfter = printEvery * newLineAfter;
-         current = new AtomicInteger();
-      }
-
-      public void tick() {
-         var curr = current.incrementAndGet();
-         if (curr % printEvery == 0) {
-            if (curr > 1 && curr % newLineAfter == 1)
-               System.out.println();
-            System.out.print('.');
-         }
-      }
    }
 }
