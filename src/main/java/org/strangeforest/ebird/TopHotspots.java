@@ -13,6 +13,7 @@ import org.strangeforest.ebird.util.*;
 
 import static java.util.Comparator.*;
 import static org.strangeforest.ebird.util.PrintUtil.*;
+import static org.strangeforest.ebird.util.Util.*;
 
 public class TopHotspots {
 
@@ -55,18 +56,13 @@ public class TopHotspots {
    private static Stream<Hotspot> enrichHotspots(Stream<Hotspot> hotspots) {
       var ticker = new Ticker(1, 100);
       return hotspots.map(hotspot -> {
-         var enrichedHotspot = enrichHotspot(hotspot);
+         var enrichedHotspot = enrichHotspot(hotspot, TARGET_ACTION);
          ticker.tick();
          return enrichedHotspot;
       });
    }
 
-   private static Stream<Hotspot> sortHotspots(Stream<Hotspot> hotspots) {
-      return hotspots.toList().stream()
-         .sorted(comparing(Hotspot::score).reversed());
-   }
-
-   private static Hotspot enrichHotspot(Hotspot hotspot) {
+   private static Hotspot enrichHotspot(Hotspot hotspot, MediaType mediaType) {
       var eBirdSessionId = System.getProperty(EBIRD_SESSIONID_PROPERTY);
       if (eBirdSessionId == null)
          throw new IllegalArgumentException("System property %1$s must be specified".formatted(EBIRD_SESSIONID_PROPERTY));
@@ -77,12 +73,19 @@ public class TopHotspots {
          beginMonth = beginMonth.minus(1);
       var endMonth = beginMonth.plus(1);
 
+      hotspot = enrichHotspot(hotspot, eBirdSessionId, beginMonth, endMonth, MediaType.NONE);
+      if (mediaType != MediaType.NONE)
+         hotspot = enrichHotspot(hotspot, eBirdSessionId, beginMonth, endMonth, mediaType);
+      return hotspot;
+   }
+
+   private static Hotspot enrichHotspot(Hotspot hotspot, String eBirdSessionId, Month beginMonth, Month endMonth, MediaType mediaType) {
       var url = "https://ebird.org/targets?r1=%1$s&bmo=%2$d&emo=%3$d&r2=world&t2=%4$s&mediaType=%5$s".formatted(
          hotspot.id(),
          beginMonth.getValue(),
          endMonth.getValue(),
          TARGET_PERIOD.code(),
-         TARGET_ACTION.code()
+         mediaType.code()
       );
 
       try {
@@ -101,6 +104,8 @@ public class TopHotspots {
                return new TargetSpecies(name, frequency);
             })
             .toList();
+         if (!hotspot.targetSpecies().isEmpty())
+            targetSpecies = mergeAndSort(hotspot.targetSpecies(), targetSpecies, comparing(TargetSpecies::frequency).reversed());
          return new Hotspot(hotspot.id(), hotspot.name(), hotspotScore(targetSpecies), checklists, targetSpecies);
       }
       catch (IOException ex) {
@@ -111,5 +116,10 @@ public class TopHotspots {
 
    private static double hotspotScore(List<TargetSpecies> targetSpecies) {
       return targetSpecies.stream().mapToDouble(TargetSpecies::frequency).sum();
+   }
+
+   private static Stream<Hotspot> sortHotspots(Stream<Hotspot> hotspots) {
+      return hotspots.toList().stream()
+         .sorted(comparing(Hotspot::score).reversed());
    }
 }
