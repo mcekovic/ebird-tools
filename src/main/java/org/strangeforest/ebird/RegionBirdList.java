@@ -1,51 +1,51 @@
 package org.strangeforest.ebird;
 
 import java.io.*;
-import java.util.*;
 import java.util.stream.*;
 
-import com.fasterxml.jackson.core.type.*;
 import com.fasterxml.jackson.databind.*;
 import com.jayway.jsonpath.*;
 import net.minidev.json.*;
 import okhttp3.*;
 import org.jsoup.*;
 import org.slf4j.*;
+import org.strangeforest.ebird.domain.*;
+import org.strangeforest.ebird.util.*;
 
 import static java.util.Comparator.*;
+import static org.strangeforest.ebird.util.PrintUtil.*;
+import static org.strangeforest.ebird.util.Util.*;
 
+public class RegionBirdList {
 
-public class CountryBirdList {
-
-   private static final String COUNTRY_CODE = "RS";
+   private static final Region REGION = Region.SERBIA;
    private static final boolean PERSONALIZED = false;
-   private static final String EBIRD_API_USERNAME = "MjUxODE0Nw==";
-   private static final String EBIRD_API_TOKEN = "jfekjedvescr";
 
    private static final OkHttpClient CLIENT = new OkHttpClient();
    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-   private static final Logger log = LoggerFactory.getLogger(CountryBirdList.class);
+   private static final Logger log = LoggerFactory.getLogger(RegionBirdList.class);
 
    public static void main(String[] args) throws IOException {
-      System.out.println("Fetching bird species for country " + COUNTRY_CODE);
-      var species = recognizedSpecies(COUNTRY_CODE);
+      System.out.println("Fetching bird species for region: " + REGION.title());
+      var species = recognizedSpecies(REGION.code());
       System.out.println("Enriching species data");
-      species = sortSpecies(enrichSpecies(COUNTRY_CODE, species));
-      System.out.println("\nBirds:");
-      System.out.println("No,Code,Name,EnglishName,SciName,Status,ObsCount,FamilyName,FamilySciName,Order");
+      species = sortSpecies(enrichSpecies(REGION.code(), species));
+      System.out.println();
+      printBanner("Birds of " + REGION.title());
+      System.out.println("No,Code,Name,EnglishName,SciName,Status,ObsCount,UserObsCount,FamilyName,FamilySciName,Order");
       species.forEach(s ->
-         System.out.printf("%1$s,%2$s,%3$s,%4$s,%5$s,%6$s,%7$d,%8$s,%9$s,%10$s%n",
-            csvCell(s.number), s.code,
-            s.name, csvCell(s.taxonomy.comName), csvCell(s.taxonomy.sciName),
-            csvCell(s.status), s.obsCounts.obsCount,
-            csvCell(s.taxonomy.familyComName), csvCell(s.taxonomy.familySciName), csvCell(s.taxonomy.order)
+         System.out.printf("%1$s,%2$s,%3$s,%4$s,%5$s,%6$s,%7$d,%8$d,%9$s,%10$s,%11$s%n",
+            csvCell(s.number()), s.code(),
+            s.name(), csvCell(s.taxonomy().comName()), csvCell(s.taxonomy().sciName()),
+            csvCell(s.status()), s.obsCounts().obsCount(), s.obsCounts().userObsCount(),
+            csvCell(s.taxonomy().familyComName()), csvCell(s.taxonomy().familySciName()), csvCell(s.taxonomy().order())
          )
       );
    }
 
-   private static Stream<Species> recognizedSpecies(String countryCode) throws IOException {
-      return Jsoup.connect("https://ebird.org/region/%1$s?yr=all&m=&rank=lrec&hs_sortBy=date&hs_o=asc".formatted(countryCode))
+   private static Stream<Species> recognizedSpecies(String regionCode) throws IOException {
+      return Jsoup.connect("https://ebird.org/region/%1$s?yr=all&m=&rank=lrec&hs_sortBy=date&hs_o=asc".formatted(regionCode))
          .cookie("I18N_LANGUAGE", "sr")
          .get()
          .select("section.Observation--placeSpeciesObserved")
@@ -62,15 +62,15 @@ public class CountryBirdList {
          .filter(Species::isRecognized);
    }
 
-   private static Stream<Species> enrichSpecies(String countryCode, Stream<Species> species) {
+   private static Stream<Species> enrichSpecies(String regionCode, Stream<Species> species) {
       var ticker = new Ticker(1, 100);
       return species.parallel()
          .map(s -> {
-            var taxonomy = getTaxonomy(s.code);
-            var consStatus = getConservationStatus(s.code);
-            var obsCounts = getObservationCount(countryCode, s.code);
+            var taxonomy = getTaxonomy(s.code());
+            var consStatus = getConservationStatus(s.code());
+            var obsCounts = getObservationCount(regionCode, s.code());
             ticker.tick();
-            return new Species(s.number, s.code, s.name, taxonomy, consStatus, obsCounts);
+            return new Species(s.number(), s.code(), s.name(), taxonomy, consStatus, obsCounts);
          });
    }
 
@@ -112,10 +112,11 @@ public class CountryBirdList {
       );
    }
 
-   private static ObservationCounts getObservationCount(String countryCode, String speciesCode) {
+   private static ObservationCounts getObservationCount(String regionCode, String speciesCode) {
+      var username = PERSONALIZED ? padUsername(EBIRD_API_USERNAME) : "";
       return fetchData(
          speciesCode, new Request.Builder()
-            .url("https://api.ebird.org/v2/product/obsstats/%1$s/%2$s?username=%3$s".formatted(speciesCode, countryCode, PERSONALIZED ? EBIRD_API_USERNAME : ""))
+            .url("https://api.ebird.org/v2/product/obsstats/%1$s/%2$s?username=%3$s".formatted(speciesCode, regionCode, username))
             .addHeader("X-eBirdApiToken", EBIRD_API_TOKEN)
             .build(),
          body -> OBJECT_MAPPER.readValue(body.byteStream(), ObservationCounts.class),
@@ -141,37 +142,5 @@ public class CountryBirdList {
          log.error("Error fetching {} for {}", message, speciesCode, ex);
          return defValue;
       }
-   }
-
-   @FunctionalInterface
-   private interface ThrowingFunction<T, R> {
-      R apply(T t) throws Exception;
-   }
-
-
-   private static String csvCell(String s) {
-      return s != null ? (s.contains(",") ? "\"" + s + "\"" : s) : "";
-   }
-
-   private static String csvCell(Object obj) {
-      return obj != null ? obj.toString() : "";
-   }
-
-   private record Species(Integer number, String code, String name, Taxonomy taxonomy, ConservationStatus status, ObservationCounts obsCounts) {
-
-      public boolean isRecognized() {
-         return !code.isBlank();
-      }
-   }
-
-   private record Taxonomy(String comName, String sciName, String familyComName, String familySciName, String order) {
-      private static final TypeReference<List<Taxonomy>> TYPE_REF = new TypeReference<>() {};
-      private static final Taxonomy EMPTY = new Taxonomy(null, null, null, null, null);
-   }
-
-   private enum ConservationStatus { LC, NT, VU, EN, CR }
-
-   private record ObservationCounts(long obsCount, long userObsCount, long userYearObsCount) {
-      private static final ObservationCounts EMPTY = new ObservationCounts(-1L, -1L, -1L);
    }
 }

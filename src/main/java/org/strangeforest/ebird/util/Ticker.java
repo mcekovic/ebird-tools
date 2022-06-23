@@ -1,13 +1,14 @@
-package org.strangeforest.ebird;
+package org.strangeforest.ebird.util;
 
 import java.util.concurrent.atomic.*;
 
-final class Ticker {
+public final class Ticker {
+
    private final int printEvery;
    private final int newLineAfter;
    private final AtomicInteger current;
 
-   Ticker(int printEvery, int newLineAfter) {
+   public Ticker(int printEvery, int newLineAfter) {
       this.printEvery = printEvery;
       this.newLineAfter = printEvery * newLineAfter;
       current = new AtomicInteger();
