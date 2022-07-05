@@ -31,7 +31,6 @@ public class TopHotspots {
       System.out.println("Finding hotspots for region: " + REGION.title());
       var hotspots = getHotspots(REGION.code())
          .limit(HOTSPOT_COUNT);
-      System.out.printf("Finding target species for hotspots: period %1$s, action %2$s%n", TARGET_PERIOD, TARGET_ACTION);
       hotspots = sortHotspots(enrichHotspots(hotspots).filter(Hotspot::isScored));
       System.out.println();
       printBanner("Top Hotspots by Score");
@@ -54,37 +53,38 @@ public class TopHotspots {
    }
 
    private static Stream<Hotspot> enrichHotspots(Stream<Hotspot> hotspots) {
-      var ticker = new Ticker(1, 100);
-      return hotspots.map(hotspot -> {
-         var enrichedHotspot = enrichHotspot(hotspot, TARGET_ACTION);
-         ticker.tick();
-         return enrichedHotspot;
-      });
-   }
-
-   private static Hotspot enrichHotspot(Hotspot hotspot, MediaType mediaType) {
       var eBirdSessionId = System.getProperty(EBIRD_SESSIONID_PROPERTY);
       if (eBirdSessionId == null)
          throw new IllegalArgumentException("System property %1$s must be specified".formatted(EBIRD_SESSIONID_PROPERTY));
 
       var today = LocalDate.now();
-      var beginMonth = today.getMonth();
-      if (today.getDayOfMonth() <= beginMonth.length(false) / 2)
-         beginMonth = beginMonth.minus(1);
+      var currentMonth = today.getMonth();
+      var beginMonth = today.getDayOfMonth() <= currentMonth.length(false) / 2 ? currentMonth.minus(1) : currentMonth;
       var endMonth = beginMonth.plus(1);
 
-      hotspot = enrichHotspot(hotspot, eBirdSessionId, beginMonth, endMonth, MediaType.NONE);
+      System.out.printf("Finding target species for hotspots: period %1$s, action %2$s, using period %3$s-%4$s%n", TARGET_PERIOD, TARGET_ACTION, beginMonth, endMonth);
+
+      var ticker = new Ticker(1, 100);
+      return hotspots.map(hotspot -> {
+         var enrichedHotspot = enrichHotspot(hotspot, beginMonth, endMonth, TARGET_PERIOD, TARGET_ACTION, eBirdSessionId);
+         ticker.tick();
+         return enrichedHotspot;
+      });
+   }
+
+   private static Hotspot enrichHotspot(Hotspot hotspot, Month beginMonth, Month endMonth, Period period, MediaType mediaType, String eBirdSessionId) {
+      hotspot = doEnrichHotspot(hotspot, beginMonth, endMonth, period, MediaType.NONE, eBirdSessionId);
       if (mediaType != MediaType.NONE)
-         hotspot = enrichHotspot(hotspot, eBirdSessionId, beginMonth, endMonth, mediaType);
+         hotspot = doEnrichHotspot(hotspot, beginMonth, endMonth, period, mediaType, eBirdSessionId);
       return hotspot;
    }
 
-   private static Hotspot enrichHotspot(Hotspot hotspot, String eBirdSessionId, Month beginMonth, Month endMonth, MediaType mediaType) {
+   private static Hotspot doEnrichHotspot(Hotspot hotspot, Month beginMonth, Month endMonth, Period period, MediaType mediaType, String eBirdSessionId) {
       var url = "https://ebird.org/targets?r1=%1$s&bmo=%2$d&emo=%3$d&r2=world&t2=%4$s&mediaType=%5$s".formatted(
          hotspot.id(),
          beginMonth.getValue(),
          endMonth.getValue(),
-         TARGET_PERIOD.code(),
+         period.code(),
          mediaType.code()
       );
 
