@@ -3,6 +3,7 @@ package org.strangeforest.ebird;
 import java.io.*;
 import java.time.*;
 import java.util.*;
+import java.util.function.*;
 import java.util.stream.*;
 
 import org.jsoup.*;
@@ -22,6 +23,7 @@ public class TopHotspots {
    private static final MediaType TARGET_ACTION = MediaType.NONE;
    private static final int HOTSPOT_COUNT = 25;
    private static final int MIN_CHECKLISTS = 2;
+   private static final Predicate<TargetSpecies> SPECIES_FILTER = TargetSpecies.ALL;
 
    private static final String EBIRD_SESSIONID_PROPERTY = "ebird.sessionid";
 
@@ -48,7 +50,7 @@ public class TopHotspots {
             var href = hotspot.attributes().get("href");
             var id = href.substring(9, href.indexOf('?'));
             var name = hotspot.text();
-            return new Hotspot(id, name, 0.0, 0, List.of());
+            return new Hotspot(id, name);
          });
    }
 
@@ -103,19 +105,16 @@ public class TopHotspots {
                var frequency = Double.parseDouble(frequencyStr.substring(0, frequencyStr.indexOf('%'))) * 0.01;
                return new TargetSpecies(name, frequency);
             })
+            .filter(SPECIES_FILTER)
             .toList();
          if (!hotspot.targetSpecies().isEmpty())
             targetSpecies = mergeAndSort(hotspot.targetSpecies(), targetSpecies, comparing(TargetSpecies::frequency).reversed());
-         return new Hotspot(hotspot.id(), hotspot.name(), hotspotScore(targetSpecies), checklists, targetSpecies);
+         return new Hotspot(hotspot.id(), hotspot.name(), checklists, targetSpecies);
       }
       catch (IOException ex) {
          log.error("Error fetching target species for hotspot {}", hotspot.id(), ex);
          return hotspot;
       }
-   }
-
-   private static double hotspotScore(List<TargetSpecies> targetSpecies) {
-      return targetSpecies.stream().mapToDouble(TargetSpecies::frequency).sum();
    }
 
    private static Stream<Hotspot> sortHotspots(Stream<Hotspot> hotspots) {
