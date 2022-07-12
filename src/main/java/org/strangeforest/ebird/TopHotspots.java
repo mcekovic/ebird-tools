@@ -2,14 +2,13 @@ package org.strangeforest.ebird;
 
 import java.io.*;
 import java.time.*;
-import java.util.*;
 import java.util.function.*;
 import java.util.stream.*;
 
 import org.jsoup.*;
 import org.slf4j.*;
-import org.strangeforest.ebird.domain.*;
 import org.strangeforest.ebird.domain.Period;
+import org.strangeforest.ebird.domain.*;
 import org.strangeforest.ebird.util.*;
 
 import static java.util.Comparator.*;
