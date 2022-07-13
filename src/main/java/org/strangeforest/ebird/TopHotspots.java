@@ -22,7 +22,7 @@ public class TopHotspots {
    private static final MediaType TARGET_ACTION = MediaType.NONE;
    private static final int HOTSPOT_COUNT = 25;
    private static final int MIN_CHECKLISTS = 2;
-   private static final Predicate<TargetSpecies> SPECIES_FILTER = TargetSpecies.ALL;
+   private static final Predicate<TargetSpecies> SPECIES_FILTER = TargetSpecies.filter();
 
    private static final String EBIRD_SESSIONID_PROPERTY = "ebird.sessionid";
 

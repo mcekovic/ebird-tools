@@ -5,9 +5,7 @@ import java.util.function.*;
 
 public record TargetSpecies(String name, double frequency) {
 
-   public static Predicate<TargetSpecies> ALL = s -> true;
-
-   public static Predicate<TargetSpecies> filter(String name) {
-      return s -> Objects.equals(s.name, name);
+   public static Predicate<TargetSpecies> filter(String... names) {
+      return s -> names.length == 0 || Set.of(names).contains(s.name);
    }
 }
