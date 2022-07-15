@@ -20,6 +20,7 @@ public class TopHotspots {
    private static final Region REGION = Region.SERBIA;
    private static final Period TARGET_PERIOD = Period.LIFE;
    private static final MediaType TARGET_ACTION = MediaType.NONE;
+   private static final int MONTH_SPAN = 2;
    private static final int HOTSPOT_COUNT = 25;
    private static final int MIN_CHECKLISTS = 2;
    private static final Predicate<TargetSpecies> SPECIES_FILTER = TargetSpecies.filter();
@@ -32,7 +33,7 @@ public class TopHotspots {
       System.out.println("Finding hotspots for region: " + REGION.title());
       var hotspots = getHotspots(REGION.code())
          .limit(HOTSPOT_COUNT);
-      hotspots = sortHotspots(enrichHotspots(hotspots).filter(Hotspot::isScored));
+      hotspots = sortHotspots(enrichHotspots(hotspots, TARGET_PERIOD, TARGET_ACTION, MONTH_SPAN).filter(Hotspot::isScored));
       System.out.println();
       printBanner("Top Hotspots by Score");
       hotspots.forEach(hotspot -> {
@@ -53,21 +54,21 @@ public class TopHotspots {
          });
    }
 
-   private static Stream<Hotspot> enrichHotspots(Stream<Hotspot> hotspots) {
+   private static Stream<Hotspot> enrichHotspots(Stream<Hotspot> hotspots, Period targetPeriod, MediaType targetAction, int monthSpan) {
       var eBirdSessionId = System.getProperty(EBIRD_SESSIONID_PROPERTY);
       if (eBirdSessionId == null)
          throw new IllegalArgumentException("System property %1$s must be specified".formatted(EBIRD_SESSIONID_PROPERTY));
 
       var today = LocalDate.now();
       var currentMonth = today.getMonth();
-      var beginMonth = today.getDayOfMonth() <= currentMonth.length(false) / 2 ? currentMonth.minus(1) : currentMonth;
-      var endMonth = beginMonth.plus(1);
+      var beginMonth = currentMonth.minus((monthSpan - (monthSpan % 2 == 0 && today.getDayOfMonth() <= currentMonth.length(false) / 2 ? 0 : 1)) / 2);
+      var endMonth = beginMonth.plus(monthSpan - 1);
 
-      System.out.printf("Finding target species for hotspots: period %1$s, action %2$s, using period %3$s-%4$s%n", TARGET_PERIOD, TARGET_ACTION, beginMonth, endMonth);
+      System.out.printf("Finding target species for hotspots: period %1$s, action %2$s, using period %3$s-%4$s%n", targetPeriod, targetAction, beginMonth, endMonth);
 
       var ticker = new Ticker(1, 100);
       return hotspots.map(hotspot -> {
-         var enrichedHotspot = enrichHotspot(hotspot, beginMonth, endMonth, TARGET_PERIOD, TARGET_ACTION, eBirdSessionId);
+         var enrichedHotspot = enrichHotspot(hotspot, beginMonth, endMonth, targetPeriod, targetAction, eBirdSessionId);
          ticker.tick();
          return enrichedHotspot;
       });
