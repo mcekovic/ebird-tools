@@ -2,6 +2,7 @@ package org.strangeforest.ebird;
 
 import java.io.*;
 import java.time.*;
+import java.util.concurrent.*;
 import java.util.function.*;
 import java.util.stream.*;
 
@@ -24,6 +25,7 @@ public class TopHotspots {
    private static final int HOTSPOT_COUNT = 25;
    private static final int MIN_CHECKLISTS = 2;
    private static final Predicate<TargetSpecies> SPECIES_FILTER = TargetSpecies.filter();
+   private static final long PAUSE = 3L;
 
    private static final String EBIRD_SESSIONID_PROPERTY = "ebird.sessionid";
 
@@ -67,11 +69,13 @@ public class TopHotspots {
       System.out.printf("Finding target species for hotspots: period %1$s, action %2$s, using period %3$s-%4$s%n", targetPeriod, targetAction, beginMonth, endMonth);
 
       var ticker = new Ticker(1, 100);
-      return hotspots.map(hotspot -> {
-         var enrichedHotspot = enrichHotspot(hotspot, beginMonth, endMonth, targetPeriod, targetAction, eBirdSessionId);
-         ticker.tick();
-         return enrichedHotspot;
-      });
+      hotspots = hotspots.map(hotspot -> {
+            var enrichedHotspot = enrichHotspot(hotspot, beginMonth, endMonth, targetPeriod, targetAction, eBirdSessionId);
+            ticker.tick();
+            return enrichedHotspot;
+         })
+         .onClose(() -> System.out.printf("%1$d hotspots processed%n", ticker.ticks()));
+      return hotspots;
    }
 
    private static Hotspot enrichHotspot(Hotspot hotspot, Month beginMonth, Month endMonth, Period period, MediaType mediaType, String eBirdSessionId) {
@@ -91,6 +95,7 @@ public class TopHotspots {
       );
 
       try {
+         TimeUnit.SECONDS.sleep(PAUSE);
          var doc = Jsoup.connect(url)
             .cookie("EBIRD_SESSIONID", eBirdSessionId)
             .get();
@@ -111,7 +116,7 @@ public class TopHotspots {
             targetSpecies = mergeAndSort(hotspot.targetSpecies(), targetSpecies, comparing(TargetSpecies::frequency).reversed());
          return new Hotspot(hotspot.id(), hotspot.name(), checklists, targetSpecies);
       }
-      catch (IOException ex) {
+      catch (Exception ex) {
          log.error("Error fetching target species for hotspot {}", hotspot.id(), ex);
          return hotspot;
       }

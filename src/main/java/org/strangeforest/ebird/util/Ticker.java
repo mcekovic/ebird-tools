@@ -6,20 +6,24 @@ public final class Ticker {
 
    private final int printEvery;
    private final int newLineAfter;
-   private final AtomicInteger current;
+   private final AtomicInteger ticks;
 
    public Ticker(int printEvery, int newLineAfter) {
       this.printEvery = printEvery;
       this.newLineAfter = printEvery * newLineAfter;
-      current = new AtomicInteger();
+      ticks = new AtomicInteger();
    }
 
    public void tick() {
-      var curr = current.incrementAndGet();
+      var curr = ticks.incrementAndGet();
       if (curr % printEvery == 0) {
          if (curr > 1 && curr % newLineAfter == 1)
             System.out.println();
          System.out.print('.');
       }
+   }
+
+   public int ticks() {
+      return ticks.get();
    }
 }

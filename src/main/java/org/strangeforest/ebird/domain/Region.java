@@ -3,7 +3,7 @@ package org.strangeforest.ebird.domain;
 public enum Region {
 
    SERBIA("RS", "Serbia"),
-   BELGRADE("RS-00", "Belgrade"),
+   BEOGRAD("RS-00", "Beograd"),
    VOJVODINA("RS-VO", "Vojvodina"),
    MACVA("RS-08", "Mačva"),
    KOLUBARA("RS-09", "Kolubara"),
