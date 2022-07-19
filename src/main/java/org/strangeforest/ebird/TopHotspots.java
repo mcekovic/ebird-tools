@@ -22,7 +22,7 @@ public class TopHotspots {
    private static final Period TARGET_PERIOD = Period.LIFE;
    private static final MediaType TARGET_ACTION = MediaType.NONE;
    private static final int MONTH_SPAN = 2;
-   private static final int HOTSPOT_COUNT = 25;
+   private static final int HOTSPOT_COUNT = 50;
    private static final int MIN_CHECKLISTS = 2;
    private static final Predicate<TargetSpecies> SPECIES_FILTER = TargetSpecies.filter();
    private static final long PAUSE = 3L;
@@ -35,8 +35,9 @@ public class TopHotspots {
       System.out.println("Finding hotspots for region: " + REGION.title());
       var hotspots = getHotspots(REGION.code())
          .limit(HOTSPOT_COUNT);
-      hotspots = sortHotspots(enrichHotspots(hotspots, TARGET_PERIOD, TARGET_ACTION, MONTH_SPAN).filter(Hotspot::isScored));
-      System.out.println();
+      var ticker = new Ticker(1, 100);
+      hotspots = sortHotspots(enrichHotspots(hotspots, TARGET_PERIOD, TARGET_ACTION, MONTH_SPAN, ticker).filter(Hotspot::isScored));
+      System.out.printf("%n%1$d hotspots processed%n", ticker.ticks());
       printBanner("Top Hotspots by Score");
       hotspots.forEach(hotspot -> {
          System.out.printf("%n%1$s - %2$.2f (%3$d)%n", hotspot.name(), hotspot.score(), hotspot.checklists());
@@ -56,7 +57,7 @@ public class TopHotspots {
          });
    }
 
-   private static Stream<Hotspot> enrichHotspots(Stream<Hotspot> hotspots, Period targetPeriod, MediaType targetAction, int monthSpan) {
+   private static Stream<Hotspot> enrichHotspots(Stream<Hotspot> hotspots, Period targetPeriod, MediaType targetAction, int monthSpan, Ticker ticker) {
       var eBirdSessionId = System.getProperty(EBIRD_SESSIONID_PROPERTY);
       if (eBirdSessionId == null)
          throw new IllegalArgumentException("System property %1$s must be specified".formatted(EBIRD_SESSIONID_PROPERTY));
@@ -68,13 +69,11 @@ public class TopHotspots {
 
       System.out.printf("Finding target species for hotspots: period %1$s, action %2$s, using period %3$s-%4$s%n", targetPeriod, targetAction, beginMonth, endMonth);
 
-      var ticker = new Ticker(1, 100);
       hotspots = hotspots.map(hotspot -> {
-            var enrichedHotspot = enrichHotspot(hotspot, beginMonth, endMonth, targetPeriod, targetAction, eBirdSessionId);
-            ticker.tick();
-            return enrichedHotspot;
-         })
-         .onClose(() -> System.out.printf("%1$d hotspots processed%n", ticker.ticks()));
+         var enrichedHotspot = enrichHotspot(hotspot, beginMonth, endMonth, targetPeriod, targetAction, eBirdSessionId);
+         ticker.tick();
+         return enrichedHotspot;
+      });
       return hotspots;
    }
 
