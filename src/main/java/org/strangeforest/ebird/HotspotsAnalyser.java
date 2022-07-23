@@ -56,12 +56,12 @@ public class HotspotsAnalyser {
    }
 
    public void topHotspots(PrintStream out) throws IOException {
-      out.println("Finding hotspots for region: " + region.title());
+      printBanner(System.out, "Top Hotspots by Score");
+      out.printf("%nFinding top hotspots for region: %1$s%n", region.title());
       var hotspots = getHotspots();
       out.printf("Finding target species for %1$d hotspots: period %2$s, action %3$s, using period %4$s-%5$s%n", hotspots.size(), targetPeriod, targetAction, beginMonth, endMonth);
       hotspots = sortHotspots(enrichHotspots(hotspots));
       out.printf("%n%1$d hotspots processed%n", ticker.ticks());
-      printBanner("Top Hotspots by Score");
       for (var hotspot : hotspots) {
          out.printf("%n%1$s - %2$.2f (%3$d)%n", hotspot.name(), hotspot.score(), hotspot.checklists());
          for (var targetSpecies : hotspot.targetSpecies())

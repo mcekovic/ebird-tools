@@ -32,7 +32,7 @@ public class RegionBirdList {
       System.out.println("Enriching species data");
       species = sortSpecies(enrichSpecies(REGION.code(), species));
       System.out.println();
-      printBanner("Birds of " + REGION.title());
+      printBanner(System.out, "Birds of " + REGION.title());
       System.out.println("No,Code,Name,EnglishName,SciName,Status,ObsCount,UserObsCount,FamilyName,FamilySciName,Order");
       species.forEach(s ->
          System.out.printf("%1$s,%2$s,%3$s,%4$s,%5$s,%6$s,%7$d,%8$d,%9$s,%10$s,%11$s%n",
