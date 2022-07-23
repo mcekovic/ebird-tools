@@ -27,6 +27,7 @@ public class TopHotspots {
          var analyser = new HotspotsAnalyser(region, HOTSPOT_COUNT, TARGET_PERIOD, TARGET_ACTION, MONTH_SPAN, MIN_CHECKLISTS, SPECIES_FILTER);
          try (var out = new FileOutputStream("top-hotspots/%1$s.txt".formatted(region.title()))) {
             analyser.topHotspots(new PrintStream(new TeeOutputStream(System.out, out)));
+            System.out.println("\n");
          }
       }
    }
